@@ -1,0 +1,385 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  avatarUrl String?
+  createdAt DateTime @default(now())
+
+  tasks                 Task[]
+  learnings             Learning[]
+  captures              Capture[]
+  dailyLogs             DailyLog[]
+  weeklyProgress        WeeklyProgress[]
+  tags                  Tag[]
+  categories            Category[]
+  boards                Board[]
+  accounts              Account[]
+  transactions          Transaction[]
+  financeCategories     FinanceCategory[]
+  budgets               Budget[]
+  recurringTransactions RecurringTransaction[]
+  raciProjects          RaciProject[]
+}
+
+enum TaskStatus {
+  active
+  archived
+}
+
+enum Priority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum TaskSection {
+  today
+  backlog
+}
+
+model Task {
+  id          String      @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  status      TaskStatus  @default(active)
+  priority    Priority    @default(medium)
+  dueDate     DateTime?
+  section     TaskSection @default(today)
+  tags        String[]
+  category    String?
+  createdAt   DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+enum LearningCategory {
+  concept
+  snippet
+  link
+  paper
+  resource
+  tool
+}
+
+enum Difficulty {
+  beginner
+  intermediate
+  advanced
+}
+
+model Learning {
+  id            String           @id @default(cuid())
+  userId        String
+  rawInput      String
+  claudeSummary String
+  category      LearningCategory @default(concept)
+  tags          String[]
+  difficulty    Difficulty       @default(beginner)
+  sourceUrl     String?
+  isFavorite    Boolean          @default(false)
+  createdAt     DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Capture {
+  id         String   @id @default(cuid())
+  userId     String
+  rawText    String
+  processed  Boolean  @default(false)
+  assignedTo String?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model DailyLog {
+  id               String   @id @default(cuid())
+  userId           String
+  date             DateTime @db.Date
+  energyLevel      Int
+  mood             Int
+  wins             String?
+  blockers         String?
+  learnedToday     String?
+  tomorrowFocus    String?
+  claudeReflection String?
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, date])
+}
+
+model WeeklyProgress {
+  id            String   @id @default(cuid())
+  userId        String
+  weekStartDate DateTime @db.Date
+  skills        String[]
+  highlights    String?
+  blockers      String?
+  claudeSummary String?
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  color     String   @default("#79c14a")
+  module    String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  module    String
+  color     String   @default("#79c14a")
+  icon      String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Board {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  color       String   @default("#79c14a")
+  createdAt   DateTime @default(now())
+
+  user    User          @relation(fields: [userId], references: [id])
+  columns BoardColumn[]
+  cards   KanbanCard[]
+}
+
+model BoardColumn {
+  id        String   @id @default(cuid())
+  boardId   String
+  title     String
+  position  Int      @default(0)
+  color     String?
+  wipLimit  Int?
+  createdAt DateTime @default(now())
+
+  board Board        @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  cards KanbanCard[]
+}
+
+model KanbanCard {
+  id          String    @id @default(cuid())
+  columnId    String
+  boardId     String
+  title       String
+  description String?
+  priority    Priority  @default(medium)
+  dueDate     DateTime?
+  tags        String[]
+  assignee    String?
+  position    Int       @default(0)
+  isArchived  Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  column     BoardColumn     @relation(fields: [columnId], references: [id])
+  board      Board           @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  checklists CardChecklist[]
+}
+
+model CardChecklist {
+  id        String   @id @default(cuid())
+  cardId    String
+  title     String
+  createdAt DateTime @default(now())
+
+  card  KanbanCard      @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  items ChecklistItem[]
+}
+
+model ChecklistItem {
+  id          String   @id @default(cuid())
+  checklistId String
+  text        String
+  isDone      Boolean  @default(false)
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  checklist CardChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+}
+
+enum AccountType {
+  cash
+  card
+  savings
+  investment
+}
+
+model Account {
+  id        String      @id @default(cuid())
+  userId    String
+  name      String
+  type      AccountType
+  balance   Float       @default(0)
+  currency  String      @default("INR")
+  color     String      @default("#79c14a")
+  createdAt DateTime    @default(now())
+
+  user         User          @relation(fields: [userId], references: [id])
+  transactions Transaction[]
+}
+
+enum TransactionType {
+  income
+  expense
+}
+
+model Transaction {
+  id          String          @id @default(cuid())
+  userId      String
+  accountId   String
+  title       String
+  amount      Float
+  type        TransactionType
+  categoryId  String?
+  date        DateTime        @db.Date
+  notes       String?
+  tags        String[]
+  isRecurring Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+
+  user     User             @relation(fields: [userId], references: [id])
+  account  Account          @relation(fields: [accountId], references: [id])
+  category FinanceCategory? @relation(fields: [categoryId], references: [id])
+}
+
+model FinanceCategory {
+  id            String          @id @default(cuid())
+  userId        String
+  name          String
+  type          TransactionType
+  icon          String?
+  color         String          @default("#79c14a")
+  monthlyBudget Float?
+  createdAt     DateTime        @default(now())
+
+  user         User          @relation(fields: [userId], references: [id])
+  transactions Transaction[]
+  budgets      Budget[]
+}
+
+model Budget {
+  id         String   @id @default(cuid())
+  userId     String
+  categoryId String
+  amount     Float
+  month      Int
+  year       Int
+  createdAt  DateTime @default(now())
+
+  user     User            @relation(fields: [userId], references: [id])
+  category FinanceCategory @relation(fields: [categoryId], references: [id])
+}
+
+enum Frequency {
+  daily
+  weekly
+  monthly
+  yearly
+}
+
+model RecurringTransaction {
+  id         String          @id @default(cuid())
+  userId     String
+  title      String
+  amount     Float
+  type       TransactionType
+  categoryId String?
+  frequency  Frequency
+  nextDue    DateTime        @db.Date
+  isActive   Boolean         @default(true)
+  createdAt  DateTime        @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+enum ProjectStatus {
+  active
+  completed
+  archived
+}
+
+model RaciProject {
+  id          String        @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  status      ProjectStatus @default(active)
+  createdAt   DateTime      @default(now())
+
+  user    User         @relation(fields: [userId], references: [id])
+  tasks   RaciTask[]
+  members RaciMember[]
+}
+
+model RaciTask {
+  id          String    @id @default(cuid())
+  projectId   String
+  title       String
+  description String?
+  deadline    DateTime?
+  priority    Priority  @default(medium)
+  position    Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  project     RaciProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignments RaciAssignment[]
+}
+
+model RaciMember {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String
+  role      String?
+  email     String?
+  createdAt DateTime @default(now())
+
+  project     RaciProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignments RaciAssignment[]
+}
+
+enum Responsibility {
+  R
+  A
+  C
+  I
+}
+
+model RaciAssignment {
+  id             String         @id @default(cuid())
+  taskId         String
+  memberId       String
+  responsibility Responsibility
+  createdAt      DateTime       @default(now())
+
+  task   RaciTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  member RaciMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, memberId])
+}
