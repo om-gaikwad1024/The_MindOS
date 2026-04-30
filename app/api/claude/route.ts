@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma, USER_ID } from "@/lib/prisma";
 import { generateMorningBrief, generateWeeklySummary, generateFinanceInsights } from "@/lib/anthropic";
