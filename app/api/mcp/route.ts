@@ -1,8 +1,11 @@
 export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
-import { prisma, USER_ID } from "@/lib/prisma";
-import { summarizeLearning, generateDailyReflection } from "@/lib/anthropic";
 import { format } from "date-fns";
+
+const BASE =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
 
 const tools = [
   {
@@ -26,7 +29,7 @@ const tools = [
   },
   {
     name: "archive_task",
-    description: "Mark a task as done/archived by its id",
+    description: "Mark a task as done by its id",
     inputSchema: {
       type: "object",
       required: ["id"],
@@ -35,7 +38,7 @@ const tools = [
   },
   {
     name: "get_all_tasks",
-    description: "Get all active tasks across today and backlog",
+    description: "Get all active tasks from MindOS",
     inputSchema: { type: "object", properties: {} },
   },
   {
@@ -55,7 +58,7 @@ const tools = [
   },
   {
     name: "get_learnings",
-    description: "Get learnings from the vault, optionally filtered",
+    description: "Get learnings from MindOS vault, optionally filtered",
     inputSchema: {
       type: "object",
       properties: {
@@ -88,7 +91,7 @@ const tools = [
   },
   {
     name: "add_capture",
-    description: "Quick capture raw text to MindOS for later processing",
+    description: "Quick capture raw text into MindOS for later processing",
     inputSchema: {
       type: "object",
       required: ["rawText"],
@@ -117,7 +120,7 @@ const tools = [
   },
   {
     name: "get_kanban_boards",
-    description: "Get all Kanban boards and their card counts from MindOS",
+    description: "Get all Kanban boards from MindOS",
     inputSchema: { type: "object", properties: {} },
   },
   {
@@ -127,37 +130,35 @@ const tools = [
   },
   {
     name: "get_dashboard",
-    description: "Get full MindOS dashboard — tasks, learnings, finance, boards, logs. Use for morning brief.",
+    description: "Get full MindOS dashboard — tasks, learnings, finance, boards. Use for morning brief.",
     inputSchema: { type: "object", properties: {} },
-  },
-  {
-    name: "get_raci_project",
-    description: "Get the RACI matrix for a specific project",
-    inputSchema: {
-      type: "object",
-      required: ["projectId"],
-      properties: { projectId: { type: "string" } },
-    },
   },
   {
     name: "get_raci_projects",
     description: "List all RACI projects in MindOS",
     inputSchema: { type: "object", properties: {} },
   },
+  {
+    name: "get_raci_project",
+    description: "Get the full RACI matrix for a specific project",
+    inputSchema: {
+      type: "object",
+      required: ["projectId"],
+      properties: { projectId: { type: "string" } },
+    },
+  },
 ];
 
+async function fetcher(path: string, method = "GET", body?: unknown) {
+  const res = await fetch(`${BASE}${path}`, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return res.json();
+}
+
 async function executeTool(name: string, args: Record<string, unknown>) {
-  const base = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "http://localhost:3000";
-
-  const fetcher = (path: string, method = "GET", body?: unknown) =>
-    fetch(`${base}${path}`, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: body ? JSON.stringify(body) : undefined,
-    }).then((r) => r.json());
-
   switch (name) {
     case "get_today_tasks":
       return fetcher("/api/tasks?section=today&status=active");
@@ -166,19 +167,28 @@ async function executeTool(name: string, args: Record<string, unknown>) {
       return fetcher("/api/tasks?status=active");
 
     case "add_task":
-      return fetcher("/api/tasks", "POST", { ...args, section: "today", tags: args.tags || [] });
+      return fetcher("/api/tasks", "POST", {
+        ...args,
+        section: "today",
+        tags: args.tags || [],
+      });
 
     case "archive_task":
       return fetcher(`/api/tasks/${args.id}`, "PATCH", { status: "archived" });
 
     case "add_learning":
-      return fetcher("/api/learnings", "POST", { ...args, tags: args.tags || [] });
+      return fetcher("/api/learnings", "POST", {
+        ...args,
+        tags: args.tags || [],
+      });
 
     case "get_learnings": {
-      const p = new URLSearchParams(
-        Object.fromEntries(Object.entries(args).filter(([, v]) => v)) as Record<string, string>
+      const params = new URLSearchParams(
+        Object.fromEntries(
+          Object.entries(args).filter(([, v]) => v != null && v !== "")
+        ) as Record<string, string>
       ).toString();
-      return fetcher(`/api/learnings?${p}`);
+      return fetcher(`/api/learnings?${params}`);
     }
 
     case "add_daily_log":
@@ -202,8 +212,12 @@ async function executeTool(name: string, args: Record<string, unknown>) {
     case "add_transaction": {
       const accounts = await fetcher("/api/finance/accounts");
       const accountId = accounts[0]?.id;
-      if (!accountId) return { error: "No account found. Create an account first." };
-      return fetcher("/api/finance/transactions", "POST", { ...args, accountId, tags: [] });
+      if (!accountId) return { error: "No account found. Create an account in MindOS first." };
+      return fetcher("/api/finance/transactions", "POST", {
+        ...args,
+        accountId,
+        tags: [],
+      });
     }
 
     case "get_kanban_boards":
@@ -226,56 +240,151 @@ async function executeTool(name: string, args: Record<string, unknown>) {
   }
 }
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+function corsHeaders() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
+    "Access-Control-Max-Age": "86400",
+  };
+}
 
-  if (body.method === "initialize") {
-    return NextResponse.json({
-      jsonrpc: "2.0",
-      id: body.id,
-      result: {
-        protocolVersion: "2024-11-05",
-        capabilities: { tools: {} },
-        serverInfo: { name: "mindos", version: "1.0.0" },
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders() });
+}
+
+export async function GET(req: NextRequest) {
+  const accept = req.headers.get("accept") || "";
+
+  if (accept.includes("text/event-stream")) {
+    const encoder = new TextEncoder();
+
+    const stream = new ReadableStream({
+      start(controller) {
+        const send = (data: unknown) => {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify(data)}\n\n`)
+          );
+        };
+
+        send({
+          jsonrpc: "2.0",
+          method: "notifications/initialized",
+          params: {},
+        });
+
+        const keepAlive = setInterval(() => {
+          controller.enqueue(encoder.encode(": ping\n\n"));
+        }, 15000);
+
+        req.signal.addEventListener("abort", () => {
+          clearInterval(keepAlive);
+          controller.close();
+        });
+      },
+    });
+
+    return new NextResponse(stream, {
+      headers: {
+        ...corsHeaders(),
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
       },
     });
   }
 
-  if (body.method === "tools/list") {
-    return NextResponse.json({
-      jsonrpc: "2.0",
-      id: body.id,
-      result: { tools },
-    });
+  return NextResponse.json(
+    {
+      name: "MindOS MCP Server",
+      status: "ok",
+      version: "1.0.0",
+      tools: tools.length,
+    },
+    { headers: corsHeaders() }
+  );
+}
+
+export async function POST(req: NextRequest) {
+  let body: {
+    jsonrpc?: string;
+    id?: string | number;
+    method?: string;
+    params?: { name?: string; arguments?: Record<string, unknown> };
+  };
+
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json(
+      { jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } },
+      { headers: corsHeaders() }
+    );
   }
 
-  if (body.method === "tools/call") {
-    const { name, arguments: args } = body.params;
-    try {
-      const result = await executeTool(name, args || {});
-      return NextResponse.json({
+  const { method, id, params } = body;
+
+  if (method === "initialize") {
+    return NextResponse.json(
+      {
         jsonrpc: "2.0",
-        id: body.id,
+        id,
         result: {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+          protocolVersion: "2024-11-05",
+          capabilities: { tools: {} },
+          serverInfo: { name: "mindos", version: "1.0.0" },
         },
-      });
+      },
+      { headers: corsHeaders() }
+    );
+  }
+
+  if (method === "notifications/initialized") {
+    return new NextResponse(null, { status: 204, headers: corsHeaders() });
+  }
+
+  if (method === "tools/list") {
+    return NextResponse.json(
+      { jsonrpc: "2.0", id, result: { tools } },
+      { headers: corsHeaders() }
+    );
+  }
+
+  if (method === "tools/call") {
+    const toolName = params?.name || "";
+    const toolArgs = (params?.arguments || {}) as Record<string, unknown>;
+
+    try {
+      const result = await executeTool(toolName, toolArgs);
+      return NextResponse.json(
+        {
+          jsonrpc: "2.0",
+          id,
+          result: {
+            content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+          },
+        },
+        { headers: corsHeaders() }
+      );
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Unknown error";
-      return NextResponse.json({
-        jsonrpc: "2.0",
-        id: body.id,
-        result: {
-          content: [{ type: "text", text: `Error: ${msg}` }],
-          isError: true,
+      return NextResponse.json(
+        {
+          jsonrpc: "2.0",
+          id,
+          result: {
+            content: [{ type: "text", text: `Error: ${msg}` }],
+            isError: true,
+          },
         },
-      });
+        { headers: corsHeaders() }
+      );
     }
   }
 
-  return NextResponse.json({ jsonrpc: "2.0", id: body.id, result: {} });
-}
-
-export async function GET() {
-  return NextResponse.json({ name: "MindOS MCP Server", status: "ok", tools: tools.length });
+  return NextResponse.json(
+    { jsonrpc: "2.0", id, result: {} },
+    { headers: corsHeaders() }
+  );
 }
