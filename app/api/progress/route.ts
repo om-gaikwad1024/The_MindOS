@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { prisma, USER_ID } from "@/lib/prisma";
 import { subDays, isSameDay } from "date-fns";
