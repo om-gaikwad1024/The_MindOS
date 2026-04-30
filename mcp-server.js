@@ -1,7 +1,7 @@
 const http = require("http");
 const { execSync } = require("child_process");
 
-const BASE_URL = "http://localhost:3000";
+const BASE_URL = "https://the-uni.vercel.app";
 
 const tools = [
   {
