@@ -37,6 +37,38 @@ const tools = [
     },
   },
   {
+    name: "get_captures",
+    description: "Get all captures from MindOS inbox, optionally filtered by processed status",
+    inputSchema: {
+      type: "object",
+      properties: {
+        processed: { type: "boolean", description: "true for processed, false for unprocessed, omit for all" },
+      },
+    },
+  },
+  {
+    name: "update_capture",
+    description: "Mark a capture as processed or assign it to a section",
+    inputSchema: {
+      type: "object",
+      required: ["id"],
+      properties: {
+        id: { type: "string" },
+        processed: { type: "boolean" },
+        assignedTo: { type: "string", enum: ["task", "learning", "log", "ignore"] },
+      },
+    },
+  },
+  {
+    name: "delete_capture",
+    description: "Permanently delete a capture from MindOS",
+    inputSchema: {
+      type: "object",
+      required: ["id"],
+      properties: { id: { type: "string" } },
+    },
+  },
+  {
     name: "get_all_tasks",
     description: "Get all active tasks from MindOS",
     inputSchema: { type: "object", properties: {} },
@@ -234,6 +266,23 @@ async function executeTool(name: string, args: Record<string, unknown>) {
 
     case "get_raci_project":
       return fetcher(`/api/raci/projects/${args.projectId}`);
+
+    case "get_captures": {
+      const data = await fetcher("/api/captures");
+      if (args.processed !== undefined) {
+        return data.filter((c: { processed: boolean }) => c.processed === args.processed);
+      }
+      return data;
+    }
+
+    case "update_capture":
+      return fetcher(`/api/captures/${args.id}`, "PATCH", {
+        processed: args.processed,
+        assignedTo: args.assignedTo,
+      });
+
+    case "delete_capture":
+      return fetcher(`/api/captures/${args.id}`, "DELETE");
 
     default:
       return { error: `Unknown tool: ${name}` };
