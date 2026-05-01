@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     tasks.flatMap((t) => [...t.tags, ...t.relatedSkills])
   );
   const learningTags = new Set(learnings.flatMap((l) => l.tags));
-  const overlapping = [...taskSkills].filter((s) => learningTags.has(s));
+  const overlapping = Array.from(taskSkills).filter((s) => learningTags.has(s));
 
   const pairs = overlapping.map((skill) => ({
     skill,
