@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Sun, BookOpen, BookMarked, TrendingUp,
-  Layout, DollarSign, Grid3X3, BarChart3, Zap
+  Layout, DollarSign, Grid3X3, BarChart3, Zap, Inbox
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +16,7 @@ const nav = [
   { href: "/kanban", label: "Kanban", icon: Layout },
   { href: "/finance", label: "Finance", icon: DollarSign },
   { href: "/raci", label: "RACI", icon: Grid3X3 },
+  { href: "/captures", label: "Captures", icon: Inbox },
   { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
 ];
 
