@@ -28,6 +28,8 @@ model User {
   budgets               Budget[]
   recurringTransactions RecurringTransaction[]
   raciProjects          RaciProject[]
+  runningContext RunningContext?
+  goals          Goal[]
 }
 
 enum TaskStatus {
@@ -57,6 +59,7 @@ model Task {
   dueDate     DateTime?
   section     TaskSection @default(today)
   tags        String[]
+  relatedSkills String[]
   category    String?
   createdAt   DateTime    @default(now())
 
@@ -382,4 +385,33 @@ model RaciAssignment {
   member RaciMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@unique([taskId, memberId])
+}
+
+model RunningContext {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  content   String
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+enum GoalTimeframe {
+  short_term
+  long_term
+}
+
+model Goal {
+  id          String        @id @default(cuid())
+  userId      String
+  title       String
+  why         String?
+  timeframe   GoalTimeframe @default(short_term)
+  status      String        @default("active")
+  deadline    DateTime?
+  linkedTasks String[]
+  createdAt   DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 }

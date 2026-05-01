@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   const logs = await prisma.dailyLog.findMany({
     where: { userId: USER_ID },
     orderBy: { date: "desc" },
-    take: recent ? parseInt(recent) : 30,
+    take: recent ? parseInt(recent) : 90,
   });
   return NextResponse.json(logs);
 }

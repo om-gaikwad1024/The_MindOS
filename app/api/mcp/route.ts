@@ -151,6 +151,84 @@ const tools = [
     },
   },
   {
+    name: "get_running_context",
+    description: "Fetch the persistent running context — blockers, goals, ongoing projects, anything flagged as worth remembering across sessions",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "update_running_context",
+    description: "Write back to the persistent running context after a session. Use append:true to add to existing context rather than overwrite.",
+    inputSchema: {
+      type: "object",
+      required: ["content"],
+      properties: {
+        content: { type: "string" },
+        append: { type: "boolean", description: "If true, appends with timestamp instead of overwriting" },
+      },
+    },
+  },
+  {
+    name: "get_morning_brief",
+    description: "Get the full bundled morning startup payload — today tasks, overdue tasks, yesterday log, weekly trend, running context, and active goals. Use this at the start of every morning conversation.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "get_goals",
+    description: "Get active goals from MindOS — short term and long term",
+    inputSchema: {
+      type: "object",
+      properties: {
+        timeframe: { type: "string", enum: ["short_term", "long_term"] },
+      },
+    },
+  },
+  {
+    name: "add_goal",
+    description: "Add a new goal to MindOS",
+    inputSchema: {
+      type: "object",
+      required: ["title", "timeframe"],
+      properties: {
+        title: { type: "string" },
+        why: { type: "string", description: "Why this goal matters" },
+        timeframe: { type: "string", enum: ["short_term", "long_term"] },
+        deadline: { type: "string", description: "YYYY-MM-DD" },
+      },
+    },
+  },
+  {
+    name: "link_task_to_goal",
+    description: "Link a task to a goal in MindOS so Claude can reframe advice in terms of goals",
+    inputSchema: {
+      type: "object",
+      required: ["goalId", "taskId"],
+      properties: {
+        goalId: { type: "string" },
+        taskId: { type: "string" },
+      },
+    },
+  },
+  {
+    name: "get_skill_overlap",
+    description: "Get tasks and learnings that share the same skill tags — surfaces the learning-task bridge. Optionally filter by a specific skill.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        skill: { type: "string", description: "Filter by specific skill tag" },
+      },
+    },
+  },
+  {
+    name: "get_recent_logs",
+    description: "Get recent daily logs. Default 30 days. Pass days param for more.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        days: { type: "number", description: "Number of days to fetch, default 30" },
+      },
+    },
+  },
+  {
     name: "get_kanban_boards",
     description: "Get all Kanban boards from MindOS",
     inputSchema: { type: "object", properties: {} },
@@ -197,6 +275,47 @@ async function executeTool(name: string, args: Record<string, unknown>) {
 
     case "get_all_tasks":
       return fetcher("/api/tasks?status=active");
+
+    case "get_running_context":
+      return fetcher("/api/context");
+
+    case "update_running_context":
+      return fetcher("/api/context", "POST", {
+        content: args.content,
+        append: args.append ?? true,
+      });
+
+    case "get_morning_brief":
+      return fetcher("/api/morning-brief");
+
+    case "get_goals": {
+      const p = args.timeframe ? `?timeframe=${args.timeframe}` : "";
+      return fetcher(`/api/goals${p}`);
+    }
+
+    case "add_goal":
+      return fetcher("/api/goals", "POST", args);
+
+    case "link_task_to_goal": {
+      const goal = await fetcher(`/api/goals/${args.goalId}`);
+      const linked = goal.linkedTasks || [];
+      if (!linked.includes(args.taskId)) {
+        linked.push(args.taskId);
+      }
+      return fetcher(`/api/goals/${args.goalId}`, "PATCH", {
+        linkedTasks: linked,
+      });
+    }
+
+    case "get_skill_overlap": {
+      const q = args.skill ? `?skill=${args.skill}` : "";
+      return fetcher(`/api/skills/overlap${q}`);
+    }
+
+    case "get_recent_logs": {
+      const days = args.days || 30;
+      return fetcher(`/api/logs?recent=${days}`);
+    }
 
     case "add_task":
       return fetcher("/api/tasks", "POST", {
