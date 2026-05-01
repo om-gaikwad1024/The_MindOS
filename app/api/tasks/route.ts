@@ -25,7 +25,18 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const task = await prisma.task.create({
-    data: { ...body, userId: USER_ID, tags: body.tags || [] },
+    data: {
+      userId: USER_ID,
+      title: body.title,
+      description: body.description || null,
+      status: body.status || "active",
+      priority: body.priority || "medium",
+      dueDate: body.dueDate ? new Date(body.dueDate) : null,
+      section: body.section || "today",
+      tags: body.tags || [],
+      relatedSkills: body.relatedSkills || [],
+      category: body.category || null,
+    },
   });
   return NextResponse.json(task, { status: 201 });
 }

@@ -219,6 +219,24 @@ const tools = [
     },
   },
   {
+    name: "delete_learning",
+    description: "Permanently delete a learning from the MindOS vault by id",
+    inputSchema: {
+      type: "object",
+      required: ["id"],
+      properties: { id: { type: "string" } },
+    },
+  },
+  {
+    name: "delete_log",
+    description: "Delete a daily log entry from MindOS by id",
+    inputSchema: {
+      type: "object",
+      required: ["id"],
+      properties: { id: { type: "string" } },
+    },
+  },
+  {
     name: "get_recent_logs",
     description: "Get recent daily logs. Default 30 days. Pass days param for more.",
     inputSchema: {
@@ -326,6 +344,12 @@ async function executeTool(name: string, args: Record<string, unknown>) {
 
     case "archive_task":
       return fetcher(`/api/tasks/${args.id}`, "PATCH", { status: "archived" });
+    
+    case "delete_learning":
+      return fetcher(`/api/learnings/${args.id}`, "DELETE");
+
+    case "delete_log":
+      return fetcher(`/api/logs/${args.id}`, "DELETE");
 
     case "add_learning":
       return fetcher("/api/learnings", "POST", {

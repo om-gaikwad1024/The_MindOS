@@ -39,9 +39,15 @@ export default function LearnPage() {
     setLearnings((ls) => ls.map((l) => (l.id === id ? { ...l, isFavorite: val } : l)));
   };
 
+  const handleDelete = (id: string) => {
+    setLearnings((ls) => ls.filter((l) => l.id !== id));
+  };
+
   const chipClass = (active: boolean) =>
     `text-xs px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
-      active ? "border-accent bg-accent/10 text-accent" : "border-[#2a2a2a] text-[#666] hover:border-[#333] hover:text-[#999]"
+      active
+        ? "border-accent bg-accent/10 text-accent"
+        : "border-[#2a2a2a] text-[#666] hover:border-[#333] hover:text-[#999]"
     }`;
 
   return (
@@ -61,7 +67,10 @@ export default function LearnPage() {
 
       <div className="mb-6 space-y-3">
         <div className="relative">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#666]" />
+          <Search
+            size={14}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#666]"
+          />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -78,12 +87,18 @@ export default function LearnPage() {
           ))}
           <div className="w-px h-4 bg-[#1f1f1f]" />
           {DIFFICULTIES.map((d) => (
-            <button key={d} onClick={() => setDifficulty(d)} className={chipClass(difficulty === d)}>
+            <button
+              key={d}
+              onClick={() => setDifficulty(d)}
+              className={chipClass(difficulty === d)}
+            >
               {d}
             </button>
           ))}
           <button onClick={() => setFavOnly(!favOnly)} className={chipClass(favOnly)}>
-            <span className="flex items-center gap-1"><Star size={11} /> favorites</span>
+            <span className="flex items-center gap-1">
+              <Star size={11} /> favorites
+            </span>
           </button>
         </div>
       </div>
@@ -91,7 +106,10 @@ export default function LearnPage() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-48 bg-[#111111] border border-[#1f1f1f] rounded-xl animate-pulse" />
+            <div
+              key={i}
+              className="h-48 bg-[#111111] border border-[#1f1f1f] rounded-xl animate-pulse"
+            />
           ))}
         </div>
       ) : learnings.length === 0 ? (
@@ -102,7 +120,11 @@ export default function LearnPage() {
         <div className="columns-1 md:columns-2 gap-4 space-y-4">
           {learnings.map((l) => (
             <div key={l.id} className="break-inside-avoid mb-4">
-              <LearningCard learning={l} onFavorite={handleFavorite} />
+              <LearningCard
+                learning={l}
+                onFavorite={handleFavorite}
+                onDelete={handleDelete}
+              />
             </div>
           ))}
         </div>

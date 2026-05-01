@@ -24,13 +24,28 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const tx = await prisma.transaction.create({
-    data: { ...body, userId: USER_ID, tags: body.tags || [] },
+    data: {
+      userId: USER_ID,
+      accountId: body.accountId,
+      title: body.title,
+      amount: parseFloat(body.amount),
+      type: body.type,
+      categoryId: body.categoryId || null,
+      date: new Date(body.date),
+      notes: body.notes || null,
+      tags: body.tags || [],
+      isRecurring: body.isRecurring || false,
+    },
     include: { category: true, account: true },
   });
 
   await prisma.account.update({
     where: { id: body.accountId },
-    data: { balance: { increment: body.type === "income" ? body.amount : -body.amount } },
+    data: {
+      balance: {
+        increment: body.type === "income" ? parseFloat(body.amount) : -parseFloat(body.amount),
+      },
+    },
   });
 
   return NextResponse.json(tx, { status: 201 });
