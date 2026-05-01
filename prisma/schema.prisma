@@ -28,8 +28,8 @@ model User {
   budgets               Budget[]
   recurringTransactions RecurringTransaction[]
   raciProjects          RaciProject[]
-  runningContext RunningContext?
-  goals          Goal[]
+  runningContext        RunningContext?
+  goals                 Goal[]
 }
 
 enum TaskStatus {
